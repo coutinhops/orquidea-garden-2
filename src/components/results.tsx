@@ -245,16 +245,27 @@ export function KitReadyScreen({ d, onNext }: { d: Derived; onNext: () => void }
   );
 }
 
-// ─── Raspadinha ──────────────────────────────────────────────────────────────
+// ─── Revelação automática do prêmio (sem clique) ─────────────────────────────
+
+const CONFETTI = ["🌸", "🎉", "✨", "🌺", "💜", "🎊"];
 
 export function ScratchScreen({ onDone }: { onDone: () => void }) {
   const [revealed, setRevealed] = useState(false);
-  const [countdown, setCountdown] = useState(4);
-  const [popping, setPopping] = useState(false);
+  const [countdown, setCountdown] = useState(3);
 
+  // Abre o presente sozinho ~1.2s após a tela aparecer
+  useEffect(() => {
+    track("prize_reveal_started");
+    const t = setTimeout(() => {
+      setRevealed(true);
+      track("prize_revealed");
+    }, 1200);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Após revelar, conta 4s e redireciona sozinho para a última página (checkout)
   useEffect(() => {
     if (!revealed) return;
-    track("scratch_revealed");
     const id = setInterval(() => {
       setCountdown((c) => {
         if (c <= 1) {
@@ -268,69 +279,62 @@ export function ScratchScreen({ onDone }: { onDone: () => void }) {
     return () => clearInterval(id);
   }, [revealed, onDone]);
 
-  const handleReveal = () => {
-    if (revealed) return;
-    setPopping(true);
-    setTimeout(() => {
-      setRevealed(true);
-      setPopping(false);
-    }, 400);
-  };
-
   return (
     <Screen className="justify-center">
-      <div className="animate-fade-up text-center">
-        <h1 className="font-display text-[26px] font-semibold leading-tight text-ink">
-          Clique para revelar seu presente da Black Friday!
-        </h1>
-        <p className="mt-2 text-[14px] text-ink/55">
-          A estufa preparou uma surpresa para celebrar a Black Friday com você
-        </p>
-      </div>
-
-      <div
-        className="relative mx-auto mt-8 w-full max-w-[320px] animate-pop-in overflow-hidden rounded-3xl border-2 border-dashed border-terra/50 shadow-[0_20px_50px_-20px_rgba(162,73,192,0.6)] cursor-pointer select-none"
-        onClick={handleReveal}
-      >
-        <div className="flex aspect-[4/3] flex-col items-center justify-center bg-gradient-to-br from-terra-faint to-sage-faint px-6 text-center">
-          <p className="font-display text-5xl font-bold text-terra-dark">90%</p>
-          <p className="mt-1 text-[15px] font-bold uppercase tracking-wider text-ink">
-            de desconto
-          </p>
-          <p className="mt-1 text-[12.5px] text-ink/60">no seu Kit de Orquídeas</p>
-          <div className="mt-3 rounded-full border border-terra/40 bg-white px-4 py-1.5 text-[13px] font-bold tracking-wider text-terra-dark">
-            {PROMO_CODE}
+      {!revealed ? (
+        /* Fase 1 · presente abrindo sozinho */
+        <div className="animate-fade-up text-center">
+          <div className="mx-auto grid size-24 animate-pulse-soft place-items-center rounded-full bg-terra-faint text-6xl">
+            🎁
           </div>
-        </div>
-
-        {!revealed && (
-          <div
-            className={`absolute inset-0 flex flex-col items-center justify-center bg-stone-800 transition-all duration-500 ${
-              popping ? "scale-110 opacity-0" : "scale-100 opacity-100"
-            }`}
-          >
-            <div className={`text-5xl mb-2 transition-transform duration-300 ${popping ? "scale-125 rotate-12" : ""}`}>
-              🎁
-            </div>
-            <p className="text-[15px] font-bold text-cream">Clique para revelar 🌸</p>
-            <p className="text-[11px] text-stone-400 mt-1">Toque uma vez e descubra sua surpresa</p>
-          </div>
-        )}
-      </div>
-
-      {revealed ? (
-        <div className="mt-6 animate-fade-up text-center">
-          <p className="text-[14px] font-semibold text-sage-dark">
-            🎉 Código aplicado automaticamente no checkout
-          </p>
-          <p className="mt-1 text-[13px] text-ink/50">
-            Redirecionando em <strong className="text-ink">{countdown}s</strong>…
+          <h1 className="mt-8 font-display text-[24px] font-semibold leading-tight text-ink">
+            A estufa preparou um presente para você…
+          </h1>
+          <p className="mt-2 animate-pulse-soft text-[14px] font-medium text-terra">
+            Abrindo agora 🌸
           </p>
         </div>
       ) : (
-        <p className="mt-6 animate-pulse-soft text-center text-[13px] font-semibold uppercase tracking-widest text-terra">
-          👆 Toque no presente para revelar
-        </p>
+        /* Fase 2 · prêmio revelado com animação + redirecionamento automático */
+        <div className="text-center">
+          {/* Chuva de celebração */}
+          <div className="pointer-events-none fixed inset-x-0 top-0 mx-auto flex h-40 max-w-md justify-between px-8">
+            {CONFETTI.map((e, i) => (
+              <span
+                key={i}
+                style={{ animationDelay: `${i * 160}ms` }}
+                className="animate-fade-up text-2xl"
+              >
+                {e}
+              </span>
+            ))}
+          </div>
+
+          <div className="animate-pop-in">
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-sage-dark">
+              🎉 Parabéns! Você ganhou
+            </p>
+            <div className="mx-auto mt-6 w-full max-w-[320px] overflow-hidden rounded-3xl border-2 border-terra/50 bg-gradient-to-br from-terra-faint to-sage-faint px-6 py-8 shadow-[0_20px_50px_-20px_rgba(162,73,192,0.6)]">
+              <p className="font-display text-6xl font-bold text-terra-dark">90%</p>
+              <p className="mt-1 text-[15px] font-bold uppercase tracking-wider text-ink">
+                de desconto
+              </p>
+              <p className="mt-1 text-[12.5px] text-ink/60">no seu Kit de Orquídeas</p>
+              <div className="mt-4 rounded-full border border-terra/40 bg-white px-4 py-1.5 text-[13px] font-bold tracking-wider text-terra-dark">
+                {PROMO_CODE}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 animate-fade-up text-center" style={{ animationDelay: "400ms" }}>
+            <p className="text-[14px] font-semibold text-sage-dark">
+              🎉 Código aplicado automaticamente no checkout
+            </p>
+            <p className="mt-1 text-[13px] text-ink/50">
+              Redirecionando em <strong className="text-ink">{countdown}s</strong>…
+            </p>
+          </div>
+        </div>
       )}
     </Screen>
   );
