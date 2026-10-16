@@ -72,7 +72,7 @@ export function SingleQuestion({
   );
 }
 
-// ─── Pergunta de múltipla escolha ────────────────────────────────────────────
+// ─── Pergunta de múltipla escolha (auto-advance) ─────────────────────────────
 
 export function MultiQuestion({
   title,
@@ -92,10 +92,22 @@ export function MultiQuestion({
   onAnswer: (v: string[]) => void;
 }) {
   const [picked, setPicked] = useState<string[]>(value ?? []);
+  // touched = houve toque NESTA visita à tela (não auto-avança ao voltar)
+  const [touched, setTouched] = useState(false);
   const mountedAt = useRef(Date.now());
+
+  // Auto-advance: 700ms após a ÚLTIMA seleção, avança sozinho.
+  // Cada novo toque reseta o timer (debounce) para a pessoa conseguir
+  // marcar várias opções antes do avanço.
+  useEffect(() => {
+    if (!touched || picked.length === 0) return;
+    const t = setTimeout(() => onAnswer(picked), 700);
+    return () => clearTimeout(t);
+  }, [picked, touched, onAnswer]);
 
   const toggle = (v: string) => {
     if (Date.now() - mountedAt.current < 500) return;
+    setTouched(true);
     setPicked((prev) => {
       let next: string[];
       if (prev.includes(v)) {
@@ -131,12 +143,14 @@ export function MultiQuestion({
           {picked.length} {picked.length === 1 ? "selecionada" : "selecionadas"}
         </p>
       )}
+      {picked.length > 0 && (
+        <p className="mt-1 animate-pulse-soft text-center text-[11px] font-medium text-ink/45">
+          Avançando automaticamente…
+        </p>
+      )}
       {disclaimer && (
         <p className="mt-4 text-center text-[11px] leading-relaxed text-ink/40">{disclaimer}</p>
       )}
-      <CTA disabled={picked.length === 0} onClick={() => onAnswer(picked)}>
-        Próximo passo
-      </CTA>
     </Screen>
   );
 }
